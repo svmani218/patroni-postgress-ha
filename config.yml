@@ -1,0 +1,86 @@
+scope: nexus
+namespace: /service/
+name: postgress1
+
+log:
+  level: DEBUG
+  dir: /var/log/patroni
+  file_size: 10000000
+  file_num: 10
+
+restapi:
+  listen: 192.168.240.134:8008
+  connect_address: 192.168.240.134:8008
+
+etcd3:
+  host: 192.168.240.131:2379
+
+bootstrap:
+  initdb:  
+  - encoding: UTF8
+  dcs:
+    ttl: 30
+    loop_wait: 10
+    retry_timeout: 10
+    maximum_lag_on_failover: 1048576
+    postgresql:
+      use_pg_rewind: true
+      use_slots: true
+      parameters:
+        archive_mode: 'on'
+        max_wal_senders: 10
+        shared_buffers: '32MB'
+        wal_log_hints: 'on'
+        max_connections: 100
+        unix_socket_directories: '/var/run/postgresql'  
+        log_directory: '/var/log/postgresql'
+        logging_collector: 'on'
+        log_rotate_age: 1d
+        log_filename: 'postgresql-%Y-%m-%d.log'
+        log_file_mode: 0640
+      pg_hba:
+        - local  all  all  trust
+        - host  all  all  0.0.0.0/0  trust
+        - host  replication  replicator  192.168.240.134/32  md5  
+        - host  replication  replicator  192.168.240.132/32  md5
+        - host  replication  replicator  0.0.0.0/0  md5
+        - host  all  all  0.0.0.0/0  md5
+  users:
+    replicator:
+      options:
+      - replication
+      password: "Capsys123"
+    postgres:
+      password: "patroni"
+      options:
+      - superuser
+      - replication
+      - createrole
+      - createdb
+
+
+postgresql:
+  listen: '*:5432'
+  connect_address: 192.168.240.134:5432
+  data_dir: /mnt1/data/patroni
+  bin_dir: /usr/lib/postgresql/16/bin
+  use_unix_socket: true
+  pgpass: /tmp/.patroni_pgpass
+  authentication:
+    replication:
+      username: replicator
+      password: "Capsys123"
+    superuser:
+      username: postgres
+      password: "patroni"
+
+      #watchdog:
+      #  mode: required
+      #  device: /dev/watchdog
+      #  safety_margin: 5
+
+tags:
+    noloadbalance: false
+    clonefrom: false
+    nofailover: false
+    nosync: false
